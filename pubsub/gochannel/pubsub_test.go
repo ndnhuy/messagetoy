@@ -2,6 +2,8 @@ package gochannel
 
 import (
 	"context"
+	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -19,32 +21,62 @@ func TestPublishSubscribe_not_persistent(t *testing.T) {
 	msgs, err := sub.Subscribe(context.TODO(), "topic_test")
 	require.NoError(t, err)
 
-	// publish
-	msgToPublish := &message.Message{
-		Headers: map[string]string{
-			"id": "1",
-		},
-		Payload: []byte("hello"),
-	}
-	err = pub.Publish("topic_test", msgToPublish)
-	require.NoError(t, err)
-
 	// publish test messages
-	publishedMsg, err := publishTestMessages(1, pub, "topic_test")
+	msgCnt := 100
+	publishedMsgs, err := publishTestMessages(msgCnt, pub, "topic_test")
 	require.NoError(t, err)
 
-	// verify if the messages received from the subscriber equals to the messages that was published
-	receivedMsgs := []*message.Message{}
+	receivedMsgs, _ := bulkRead(msgs, msgCnt, 3*time.Second)
+	// assert that sent messages and received messages are same
+	assertAllMsgsAreReceived(t, publishedMsgs, receivedMsgs)
+
+	// close pub sub
+	pub.Close()
+	sub.Close()
+
+	// assert sub is closed
 	select {
-	case receivedMsg, ok := <-msgs:
-		if ok {
-			// assert.Equal(t, msgToPublish.Payload, receivedMsg.Payload)
-		} else {
-			// assert.Fail(t, "subscriber fail to receive message")
-		}
-	case <-time.After(3 * time.Second):
-		assert.Fail(t, "subscribe timeout, no message delivered to subscriber")
+	case _, open := <-msgs:
+		assert.False(t, open)
+	default:
+		t.Error("messages channel is not closed")
 	}
+}
+
+func assertAllMsgsAreReceived(t *testing.T, publishedMsgs []*message.Message, receivedMsgs []*message.Message) {
+	assert.Equal(t, len(publishedMsgs), len(receivedMsgs))
+	sentIDs := toMsgIDs(publishedMsgs)
+	receivedIDs := toMsgIDs(receivedMsgs)
+	sort.Strings(sentIDs)
+	sort.Strings(receivedIDs)
+	assert.Equal(t, sentIDs, receivedIDs)
+}
+
+func bulkRead(msgs <-chan *message.Message, limit int, timeout time.Duration) (receivedMsgs []*message.Message, allRead bool) {
+ReceiveMsgLoop:
+	for len(receivedMsgs) < limit {
+		select {
+		case receivedMsg, ok := <-msgs:
+			if ok {
+				receivedMsgs = append(receivedMsgs, receivedMsg)
+			} else {
+				// channel is closed, just break
+				allRead = false
+				break ReceiveMsgLoop
+			}
+		case <-time.After(timeout):
+			break ReceiveMsgLoop
+		}
+	}
+	return receivedMsgs, limit == len(receivedMsgs)
+}
+
+func toMsgIDs(msgs []*message.Message) []string {
+	ids := []string{}
+	for _, msg := range msgs {
+		ids = append(ids, msg.UUID)
+	}
+	return ids
 }
 
 func createPubSub() (message.Publisher, message.Subscriber) {
@@ -57,7 +89,8 @@ func publishTestMessages(msgCount int, pub message.Publisher, topic string) ([]*
 	publishedMsg := []*message.Message{}
 	for i := 0; i < msgCount; i++ {
 		msg := &message.Message{
-			UUID: uuid.New().String(),
+			UUID:    uuid.New().String(),
+			Payload: []byte(strconv.Itoa(i)),
 		}
 		err := pub.Publish(topic, msg)
 		if err != nil {
