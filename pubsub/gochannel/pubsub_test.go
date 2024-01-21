@@ -2,6 +2,8 @@ package gochannel
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sort"
 	"strconv"
 	"testing"
@@ -40,6 +42,32 @@ func TestPublishSubscribe_not_persistent(t *testing.T) {
 		assert.False(t, open)
 	default:
 		t.Error("messages channel is not closed")
+	}
+}
+
+func TestSubscriber_race_condition_when_closing(t *testing.T) {
+	for i := 0; i < 1000; i++ {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			t.Parallel()
+			_, sub := createPubSub()
+			go func() {
+				err := sub.Close()
+				require.NoError(t, err)
+			}()
+			msgQueue, err := sub.Subscribe(context.TODO(), "test")
+			if errors.Is(err, errClosedChannel) {
+				fmt.Println(errClosedChannel.Error())
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, msgQueue)
+				select {
+				case _, open := <-msgQueue:
+					assert.False(t, open)
+				case <-time.After(3 * time.Second):
+					assert.Fail(t, "timeout, the subscriber should be closed by now")
+				}
+			}
+		})
 	}
 }
 
