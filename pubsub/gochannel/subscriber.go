@@ -2,6 +2,7 @@ package gochannel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/ndnhuy/messagetoy/message"
@@ -27,9 +28,13 @@ func newBufferSubscriber(ctx context.Context, buffer int) *subscriber {
 	}
 }
 
-func (s *subscriber) send(msg *message.Message) {
+func (s *subscriber) send(msg *message.Message) error {
+	if s.closed {
+		return errors.New("subscriber is closed")
+	}
 	s.msgQueue <- msg
 	fmt.Printf("sent msg to subscriber: {uuid: %s, payload: %s}\n", msg.UUID, string(msg.Payload))
+	return nil
 }
 
 func (s *subscriber) close() {

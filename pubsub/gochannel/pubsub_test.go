@@ -71,6 +71,23 @@ func TestSubscriber_race_condition_when_closing(t *testing.T) {
 	}
 }
 
+func TestPublish_race_condition_when_closing(t *testing.T) {
+	testCnt := 10
+	for i := 0; i < testCnt; i++ {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			t.Parallel()
+			pub, _ := createPubSub()
+			go func() {
+				err := pub.Publish("test", message.NewMessage([]byte("hello"), nil))
+				fmt.Println("fail to publish: " + err.Error())
+			}()
+
+			err := pub.Close()
+			require.NoError(t, err)
+		})
+	}
+}
+
 func assertAllMsgsAreReceived(t *testing.T, publishedMsgs []*message.Message, receivedMsgs []*message.Message) {
 	assert.Equal(t, len(publishedMsgs), len(receivedMsgs))
 	sentIDs := toMsgIDs(publishedMsgs)
