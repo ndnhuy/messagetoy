@@ -36,7 +36,7 @@ func TestPublishSubscribe_not_persistent(t *testing.T) {
 	pub.Close()
 	sub.Close()
 
-	// assert sub is closed
+	// assert pub/sub is closed
 	select {
 	case _, open := <-msgs:
 		assert.False(t, open)
