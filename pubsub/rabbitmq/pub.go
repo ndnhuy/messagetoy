@@ -33,7 +33,7 @@ func (pub *Publisher) Publish(topic string, messages ...*message.Message) error 
 		topic,
 		"fanout",
 		true,
-		false,
+		true,
 		false,
 		false,
 		nil,
@@ -42,10 +42,11 @@ func (pub *Publisher) Publish(topic string, messages ...*message.Message) error 
 		return err
 	}
 	for _, msg := range messages {
-		headers := make(amqp.Table, len(msg.Headers))
+		headers := make(amqp.Table, len(msg.Headers)+1) // +1 len for uuid
 		for k, v := range msg.Headers {
 			headers[k] = v
 		}
+		headers["uuid"] = msg.UUID
 		err := ch.PublishWithContext(context.Background(), topic, "", false, false, amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        []byte(msg.Payload),
@@ -59,6 +60,6 @@ func (pub *Publisher) Publish(topic string, messages ...*message.Message) error 
 	return nil
 }
 
-func (c *Publisher) Close() error {
-	return nil
+func (pub *Publisher) Close() error {
+	return pub.conn.Close()
 }

@@ -10,10 +10,13 @@ type Message struct {
 	Payload []byte
 }
 
-func NewMessage(payload []byte, headers map[string]string) *Message {
+func NewMessage(uuid string, payload []byte, headers map[string]string) *Message {
 	return &Message{
-		UUID:    uuid.New().String(),
+		UUID:    uuid,
 		Payload: payload,
 		Headers: headers,
 	}
+}
+func NewUUIDMessage(payload []byte, headers map[string]string) *Message {
+	return NewMessage(uuid.New().String(), payload, headers)
 }

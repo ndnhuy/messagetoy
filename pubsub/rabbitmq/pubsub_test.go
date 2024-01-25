@@ -50,6 +50,18 @@ func TestPublishSubscribe_not_persistent(t *testing.T) {
 	receivedMsgs, _ := bulkRead(msgs, msgCnt, 3*time.Second)
 	// assert that sent messages and received messages are same
 	assertAllMsgsAreReceived(t, publishedMsgs, receivedMsgs)
+
+	// close pub sub
+	pub.Close()
+	sub.Close()
+
+	// assert pub/sub is closed
+	select {
+	case _, open := <-msgs:
+		assert.False(t, open)
+	default:
+		t.Error("messages channel is not closed")
+	}
 }
 
 func createPubSub() (message.Publisher, message.Subscriber, error) {

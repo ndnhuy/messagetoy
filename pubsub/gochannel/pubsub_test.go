@@ -78,7 +78,7 @@ func TestPublish_race_condition_when_closing(t *testing.T) {
 			t.Parallel()
 			pub, _ := createPubSub()
 			go func() {
-				err := pub.Publish("test", message.NewMessage([]byte("hello"), nil))
+				err := pub.Publish("test", message.NewUUIDMessage([]byte("hello"), nil))
 				fmt.Println("fail to publish: " + err.Error())
 			}()
 
