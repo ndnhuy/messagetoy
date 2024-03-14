@@ -31,6 +31,7 @@ import (
 // get messages from the queue: rabbitmqadmin get queue=topic_test_queue count=9
 //
 // declare queue: rabbitmqadmin declare queue name=topic_test_queue
+// list bindings: rabbitmqadmin list bindings
 //
 // bind queue: rabbitmqadmin declare binding source="topic_test" destination_type="queue" destination="topic_test_queue" routing_key=""
 func TestPublishSubscribe_not_persistent(t *testing.T) {
